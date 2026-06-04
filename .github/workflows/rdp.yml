@@ -8,27 +8,26 @@ jobs:
     timeout-minutes: 360
 
     steps:
-    - name: Download
-      run: Invoke-WebRequest https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-windows-amd64.zip -OutFile ngrok.zip
+    - name: Download Ngrok
+      run: Invoke-WebRequest -Uri "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip" -OutFile "ngrok.zip"
       
-    - name: Extract
-      run: Expand-Archive ngrok.zip
+    - name: Extract Ngrok
+      run: Expand-Archive -Path "ngrok.zip" -DestinationPath "."
       
-    - name: Auth
-      run: .\ngrok\ngrok.exe authtoken 2OSMjN5cvDadPGM3YbUY4EmB9Ln_6HX7XaTGoq5rsJvVCMYJN
+    - name: Auth Ngrok
+      run: .\ngrok.exe config add-authtoken 2OSMjN5cvDadPGM3YbUY4EmB9Ln_6HX7XaTGoq5rsJvVCMYJN
       
-    - name: Enable TS
-      run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
-      
-    - run: Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-    
-    - run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
-    
+    - name: Enable Remote Desktop
+      run: |
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
+        
     - name: Create User Admin
       run: |
         $pass = ConvertTo-SecureString -AsPlainText "Burmalda09090" -Force
         New-LocalUser -Name "Admin" -Password $pass
         Add-LocalGroupMember -Group "Administrators" -Member "Admin"
         
-    - name: Create Tunnel
-      run: .\ngrok\ngrok.exe tcp 3389
+    - name: Start Tunnel
+      run: .\ngrok.exe tcp 3389
