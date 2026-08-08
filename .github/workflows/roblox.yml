@@ -35,29 +35,38 @@ jobs:
 
     - name: Download & Setup Mesa3D + Roblox (CPU Mode)
       run: |
-        # 1. Загрузка и тихий запуск RobloxPlayerInstaller.exe
+        # 1. Скачивание и тихая установка Roblox
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
         $client = New-Object System.Net.WebClient
         $client.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
         $client.DownloadFile("https://www.roblox.com/download/client", "RobloxPlayerInstaller.exe")
-        
         Start-Process -FilePath ".\RobloxPlayerInstaller.exe" -ArgumentList "-silent" -Wait
 
-        # 2. Загрузка 7-Zip и Mesa3D через WebClient
-        $client.DownloadFile("https://www.7-zip.org/a/7zr.exe", "7zr.exe")
-        $mesaUrl = "https://github.com/pal1000/mesa-dist-win/releases/download/v23.1.5/mesa3d-23.1.5-release-msvc.7z"
-        $client.DownloadFile($mesaUrl, "mesa3d.7z")
+        # 2. Динамическое получение ссылки на актуальный релиз Mesa3D через GitHub API
+        $apiUrl = "https://api.github.com/repos/pal1000/mesa-dist-win/releases/latest"
+        $release = Invoke-RestMethod -Uri $apiUrl
+        $mesaAsset = $release.assets | Where-Object { $_.name -like "*release-msvc.7z" } | Select-Object -First 1
+        
+        if ($mesaAsset) {
+            $mesaUrl = $mesaAsset.browser_download_url
+            Write-Output "Downloading Mesa3D from: $mesaUrl"
+            $client.DownloadFile($mesaUrl, "mesa3d.7z")
+        } else {
+            throw "Не удалось найти файл релиза Mesa3D"
+        }
 
-        # 3. Распаковка Mesa3D
+        # 3. Загрузка 7-Zip консольного клиента и распаковка
+        $client.DownloadFile("https://www.7-zip.org/a/7zr.exe", "7zr.exe")
         .\7zr.exe x mesa3d.7z -omesa3d -y
 
-        # 4. Копирование dll программного рендеринга в каталог Roblox
+        # 4. Копирование библиотек в папку установленного Roblox
         $robloxPath = Get-ChildItem -Path "$env:LOCALAPPDATA\Roblox\Versions" -Filter "RobloxPlayerBeta.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -ExpandProperty DirectoryName
         if ($robloxPath) {
             Copy-Item -Path ".\mesa3d\x64\opengl32.dll" -Destination $robloxPath -Force
             Copy-Item -Path ".\mesa3d\x64\libglapi.dll" -Destination $robloxPath -Force
-            Write-Output "Mesa3D successfully injected into $robloxPath"
+            Write-Output "Mesa3D успешно внедрен в: $robloxPath"
         } else {
-            Write-Output "Roblox installed, but version directory was created in user context or skipped."
+            Write-Output "Roblox установлен, но директория версий не найдена в системном профиле."
         }
 
     - name: Start Tunnel
