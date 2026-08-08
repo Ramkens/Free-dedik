@@ -8,25 +8,35 @@ jobs:
     timeout-minutes: 360
 
     steps:
-    - name: Download & Setup Ngrok
+    - name: Setup Ngrok
       run: |
         curl -s https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz | tar -xz
         ./ngrok config add-authtoken 2OSMjN5cvDadPGM3YbUY4EmB9Ln_6HX7XaTGoq5rsJvVCMYJN
 
-    - name: Run Web Desktop (Ubuntu VNC)
+    - name: Deploy Desktop + Waydroid Android
       run: |
+        # 1. Запускаем рабочий стол
         docker run -d \
-          --name desktop \
+          --name android-env \
           --privileged \
           --memory=6g \
           --cpus=2.00 \
           -p 8080:80 \
           dorowu/ubuntu-desktop-lxde-vnc:latest
 
-    - name: Wait for Desktop
-      run: sleep 10
+        sleep 10
+
+        # 2. Автоматически устанавливаем и запускаем Waydroid прямо внутри
+        docker exec -d android-env bash -c "
+          apt-get update && apt-get install -y curl ca-certificates &&
+          curl https://repo.waydro.id | bash &&
+          apt-get install -y waydroid &&
+          waydroid init -f &&
+          nohup waydroid session start &
+          sleep 10 &&
+          DISPLAY=:1 waydroid show-full-ui &
+        "
 
     - name: Start Ngrok Tunnel
       run: |
         ./ngrok http 8080
-        
