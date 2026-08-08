@@ -1,73 +1,36 @@
-name: roblox
+name: roblox-android
 
 on: [push, workflow_dispatch]
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 360
 
     steps:
-    - name: Download Ngrok
-      run: Invoke-WebRequest -Uri "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip" -OutFile "ngrok.zip"
-
-    - name: Extract Ngrok
-      run: Expand-Archive -Path "ngrok.zip" -DestinationPath "."
-
-    - name: Auth Ngrok
-      run: .\ngrok.exe config add-authtoken 2OSMjN5cvDadPGM3YbUY4EmB9Ln_6HX7XaTGoq5rsJvVCMYJN
-
-    - name: Enable Remote Desktop
+    - name: Download & Setup Ngrok
       run: |
-        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
-        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
+        curl -s https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz | tar -xz
+        ./ngrok config add-authtoken 2OSMjN5cvDadPGM3YbUY4EmB9Ln_6HX7XaTGoq5rsJvVCMYJN
 
-    - name: Disable Password Complexity & Create User Admin
+    - name: Enable Kernel Modules for Android
       run: |
-        secedit /export /cfg secpol.cfg
-        (Get-Content secpol.cfg) -replace 'PasswordComplexity = 1', 'PasswordComplexity = 0' | Set-Content secpol.cfg
-        secedit /configure /db secpol.sdb /cfg secpol.cfg /areas SECURITYPOLICY
-        
-        $pass = ConvertTo-SecureString -AsPlainText "Burmalda09090" -Force
-        New-LocalUser -Name "Admin" -Password $pass
-        Add-LocalGroupMember -Group "Administrators" -Member "Admin"
+        sudo apt-get update
+        sudo apt-get install -y linux-modules-extra-$(uname -r)
+        sudo modprobe binder_linux devices="binder,hwbinder,vndbinder" || true
+        sudo modprobe ashmem_linux || true
 
-    - name: Download & Setup Mesa3D + Roblox (CPU Mode)
+    - name: Run Android (ReDroid) with CPU Rendering & Web UI
       run: |
-        # 1. Скачивание и тихая установка Roblox
-        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        $client = New-Object System.Net.WebClient
-        $client.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
-        $client.DownloadFile("https://www.roblox.com/download/client", "RobloxPlayerInstaller.exe")
-        Start-Process -FilePath ".\RobloxPlayerInstaller.exe" -ArgumentList "-silent" -Wait
+        docker run -d \
+          --name android-container \
+          --privileged \
+          --memory=6g \
+          --cpus=4 \
+          -p 6080:6080 \
+          budtmo/docker-android:emulator_11.0
 
-        # 2. Динамическое получение ссылки на актуальный релиз Mesa3D через GitHub API
-        $apiUrl = "https://api.github.com/repos/pal1000/mesa-dist-win/releases/latest"
-        $release = Invoke-RestMethod -Uri $apiUrl
-        $mesaAsset = $release.assets | Where-Object { $_.name -like "*release-msvc.7z" } | Select-Object -First 1
-        
-        if ($mesaAsset) {
-            $mesaUrl = $mesaAsset.browser_download_url
-            Write-Output "Downloading Mesa3D from: $mesaUrl"
-            $client.DownloadFile($mesaUrl, "mesa3d.7z")
-        } else {
-            throw "Не удалось найти файл релиза Mesa3D"
-        }
-
-        # 3. Загрузка 7-Zip консольного клиента и распаковка
-        $client.DownloadFile("https://www.7-zip.org/a/7zr.exe", "7zr.exe")
-        .\7zr.exe x mesa3d.7z -omesa3d -y
-
-        # 4. Копирование библиотек в папку установленного Roblox
-        $robloxPath = Get-ChildItem -Path "$env:LOCALAPPDATA\Roblox\Versions" -Filter "RobloxPlayerBeta.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -ExpandProperty DirectoryName
-        if ($robloxPath) {
-            Copy-Item -Path ".\mesa3d\x64\opengl32.dll" -Destination $robloxPath -Force
-            Copy-Item -Path ".\mesa3d\x64\libglapi.dll" -Destination $robloxPath -Force
-            Write-Output "Mesa3D успешно внедрен в: $robloxPath"
-        } else {
-            Write-Output "Roblox установлен, но директория версий не найдена в системном профиле."
-        }
-
-    - name: Start Tunnel
-      run: .\ngrok.exe tcp 3389
+    - name: Start Ngrok Tunnel
+      run: |
+        echo "=== ТВОЯ ССЫЛКА ДЛЯ ПОДКЛЮЧЕНИЯ ПОВИТ В ЛОГАХ НИЖЕ ==="
+        ./ngrok http 6080
