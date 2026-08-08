@@ -8,33 +8,57 @@ jobs:
     timeout-minutes: 360
 
     steps:
-    - name: Download & Setup Ngrok
-      run: |
-        curl -s https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz | tar -xz
-        ./ngrok config add-authtoken 2OSMjN5cvDadPGM3YbUY4EmB9Ln_6HX7XaTGoq5rsJvVCMYJN
+      - name: Download & Setup Ngrok
+        run: |
+          curl -s https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz | tar -xz
+          ./ngrok config add-authtoken 2OSMjN5cvDadPGM3YbUY4EmB9Ln_6HX7XaTGoq5rsJvVCMYJN
 
-    - name: Run Kasm Desktop Container
-      run: |
-        docker run -d \
-          --name kasm-desktop \
-          --privileged \
-          -p 6901:6901 \
-          -e VNC_PW=Burmalda09090 \
-          kasmweb/desktop:1.14.0
+      - name: Run Kasm Desktop Container
+        run: |
+          docker run -d \
+            --name kasm-desktop \
+            --privileged \
+            -p 6901:6901 \
+            -e VNC_PW=Burmalda09090 \
+            kasmweb/desktop:1.14.0
 
-        sleep 15
+          sleep 15
 
-    - name: Install Sober (Roblox for Linux)
-      run: |
-        # Фиксим битый хромовский репозиторий внутри Kasm перед apt update
-        docker exec -u root kasm-desktop bash -c "
-          rm -f /etc/apt/sources.list.d/google-chrome.list && \
-          apt-get update && \
-          apt-get install -y flatpak && \
-          flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo && \
-          flatpak install -y flathub org.vinegarhq.Sober
-        "
+      - name: Install Sober, Tools and Place Auto-Farm Scripts on Desktop
+        run: |
+          docker exec -u root kasm-desktop bash -c "
+            rm -f /etc/apt/sources.list.d/google-chrome.list && \
+            apt-get update && \
+            apt-get install -y flatpak xdotool python3-pip python3-tk python3-dev && \
+            pip3 install pyautogui && \
+            flatpak install -y --from https://sober.roblox.com/sober.flatpakref && \
+            
+            DESKTOP_DIR=/home/kasm-default-profile/Desktop && \
+            mkdir -p \$DESKTOP_DIR && \
+            
+            cat << 'EOF' > \$DESKTOP_DIR/anti_afk.py
+          import pyautogui
+          import time
+          print('Anti-AFK запущен!')
+          while True:
+              time.sleep(120)
+              pyautogui.press('space')
+          EOF
 
-    - name: Start Ngrok Tunnel
-      run: |
-        ./ngrok http https://localhost:6901 --verify-upstream-tls=false
+            cat << 'EOF' > \$DESKTOP_DIR/autoclicker.sh
+          #!/bin/bash
+          echo 'Автокликер запущен!'
+          while true; do
+              xdotool click 1
+              sleep 0.5
+          done
+          EOF
+
+            chmod +x \$DESKTOP_DIR/autoclicker.sh && \
+            chown -R kasm-default-profile:kasm-default-profile \$DESKTOP_DIR
+          "
+
+      - name: Start Ngrok Tunnel
+        run: |
+          ./ngrok http https://localhost:6901 --verify-upstream-tls=false
+          
