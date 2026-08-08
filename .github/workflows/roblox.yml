@@ -24,27 +24,28 @@ jobs:
 
           sleep 15
 
-      - name: Install Sober, Tools and Place Auto-Farm Scripts on Desktop
+      - name: Install Sober and Place Auto-Farm Scripts
         run: |
           docker exec -u root kasm-desktop bash -c "
             rm -f /etc/apt/sources.list.d/google-chrome.list && \
             apt-get update && \
-            apt-get install -y flatpak xdotool python3-pip python3-tk python3-dev && \
-            pip3 install pyautogui && \
+            apt-get install -y flatpak xdotool && \
             flatpak install -y --from https://sober.roblox.com/sober.flatpakref && \
             
             DESKTOP_DIR=/home/kasm-default-profile/Desktop && \
             mkdir -p \$DESKTOP_DIR && \
             
-            cat << 'EOF' > \$DESKTOP_DIR/anti_afk.py
-          import pyautogui
-          import time
-          print('Anti-AFK запущен!')
-          while True:
-              time.sleep(120)
-              pyautogui.press('space')
+            # Anti-AFK Скрипт (Нажимает Пробел раз в 2 минуты через xdotool)
+            cat << 'EOF' > \$DESKTOP_DIR/anti_afk.sh
+          #!/bin/bash
+          echo 'Anti-AFK запущен! Нажимает Пробел каждые 120 сек.'
+          while true; do
+              sleep 120
+              xdotool key space
+          done
           EOF
 
+            # Автокликер (Кликает левой кнопкой мыши раз в 0.5 сек)
             cat << 'EOF' > \$DESKTOP_DIR/autoclicker.sh
           #!/bin/bash
           echo 'Автокликер запущен!'
@@ -54,7 +55,7 @@ jobs:
           done
           EOF
 
-            chmod +x \$DESKTOP_DIR/autoclicker.sh && \
+            chmod +x \$DESKTOP_DIR/anti_afk.sh \$DESKTOP_DIR/autoclicker.sh && \
             chown -R kasm-default-profile:kasm-default-profile \$DESKTOP_DIR
           "
 
