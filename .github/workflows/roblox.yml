@@ -8,29 +8,39 @@ jobs:
     timeout-minutes: 360
 
     steps:
-    - name: Download & Setup Ngrok
+    - name: Setup Ngrok
       run: |
         curl -s https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz | tar -xz
         ./ngrok config add-authtoken 2OSMjN5cvDadPGM3YbUY4EmB9Ln_6HX7XaTGoq5rsJvVCMYJN
 
-    - name: Enable Kernel Modules for Android
+    - name: Enable Kernel Modules
       run: |
         sudo apt-get update
         sudo apt-get install -y linux-modules-extra-$(uname -r)
         sudo modprobe binder_linux devices="binder,hwbinder,vndbinder" || true
         sudo modprobe ashmem_linux || true
 
-    - name: Run Android (ReDroid) with CPU Rendering & Web UI
+    - name: Run Android Redroid (Optimized for 2 CPUs)
       run: |
         docker run -d \
-          --name android-container \
+          --name redroid \
           --privileged \
           --memory=6g \
-          --cpus=4 \
-          -p 6080:6080 \
-          budtmo/docker-android:emulator_11.0
+          --cpus=2.00 \
+          -p 5555:5555 \
+          redroid/redroid:11.0.0-latest \
+          androidboot.hardware=redroid \
+          redroid.gpu.mode=guest
+
+    - name: Run Web Interface (scrcpy-web / ws-scrcpy)
+      run: |
+        docker run -d \
+          --name web-ui \
+          --net=host \
+          --cpus=2.00 \
+          ws-scrcpy/ws-scrcpy:latest || true
 
     - name: Start Ngrok Tunnel
       run: |
-        echo "=== ТВОЯ ССЫЛКА ДЛЯ ПОДКЛЮЧЕНИЯ ПОВИТ В ЛОГАХ НИЖЕ ==="
-        ./ngrok http 6080
+        echo "=== ССЫЛКА ДЛЯ ВХОДА БУДЕТ В ЛОГАХ НИЖЕ ==="
+        ./ngrok http 8000
