@@ -13,20 +13,39 @@ jobs:
         curl -s https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz | tar -xz
         ./ngrok config add-authtoken 2OSMjN5cvDadPGM3YbUY4EmB9Ln_6HX7XaTGoq5rsJvVCMYJN
 
-    - name: Run Web Desktop (Ubuntu + VNC)
+    - name: Enable Kernel Modules for Android
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y linux-modules-extra-$(uname -r) adb
+        sudo modprobe binder_linux devices="binder,hwbinder,vndbinder" || true
+        sudo modprobe ashmem_linux || true
+
+    - name: Run Redroid (Android 11 on CPU via SwiftShader)
       run: |
         docker run -d \
-          --name desktop \
+          --name redroid \
           --privileged \
           --memory=6g \
           --cpus=2.00 \
-          -p 6080:80 \
-          dorowu/ubuntu-desktop-lxde-vnc:latest
+          -p 5555:5555 \
+          redroid/redroid:11.0.0-latest \
+          androidboot.hardware=redroid \
+          redroid.gpu.mode=guest
 
-    - name: Wait for Desktop Ready
-      run: sleep 10
+    - name: Run Web Control (Scrcpy Web)
+      run: |
+        docker run -d \
+          --name scrcpy-web \
+          --net=host \
+          --privileged \
+          netptop/site-scrcpy:latest
+
+    - name: Connect ADB to Redroid
+      run: |
+        sleep 10
+        adb connect localhost:5555 || true
 
     - name: Start Ngrok Tunnel
       run: |
         echo "=== ССЫЛКА ПОЯВИТСЯ В NGROK ENDPOINTS ==="
-        ./ngrok http 6080
+        ./ngrok http 8000
