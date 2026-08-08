@@ -35,18 +35,29 @@ jobs:
 
     - name: Download & Setup Mesa3D + Roblox (CPU Mode)
       run: |
-        Invoke-WebRequest -Uri "https://www.roblox.com/download/client" -OutFile "RobloxLauncher.exe"
-        Start-Process -FilePath ".\RobloxLauncher.exe" -ArgumentList "/silent" -Wait
+        # 1. Загрузка и тихий запуск RobloxPlayerInstaller.exe
+        $client = New-Object System.Net.WebClient
+        $client.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+        $client.DownloadFile("https://www.roblox.com/download/client", "RobloxPlayerInstaller.exe")
+        
+        Start-Process -FilePath ".\RobloxPlayerInstaller.exe" -ArgumentList "-silent" -Wait
 
+        # 2. Загрузка 7-Zip и Mesa3D через WebClient
+        $client.DownloadFile("https://www.7-zip.org/a/7zr.exe", "7zr.exe")
         $mesaUrl = "https://github.com/pal1000/mesa-dist-win/releases/download/v23.1.5/mesa3d-23.1.5-release-msvc.7z"
-        Invoke-WebRequest -Uri "https://www.7-zip.org/a/7zr.exe" -OutFile "7zr.exe"
-        Invoke-WebRequest -Uri $mesaUrl -OutFile "mesa3d.7z"
+        $client.DownloadFile($mesaUrl, "mesa3d.7z")
+
+        # 3. Распаковка Mesa3D
         .\7zr.exe x mesa3d.7z -omesa3d -y
 
-        $robloxPath = Get-ChildItem -Path "$env:LOCALAPPDATA\Roblox\Versions" -Filter "RobloxPlayerBeta.exe" -Recurse | Select-Object -ExpandProperty DirectoryName
+        # 4. Копирование dll программного рендеринга в каталог Roblox
+        $robloxPath = Get-ChildItem -Path "$env:LOCALAPPDATA\Roblox\Versions" -Filter "RobloxPlayerBeta.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -ExpandProperty DirectoryName
         if ($robloxPath) {
             Copy-Item -Path ".\mesa3d\x64\opengl32.dll" -Destination $robloxPath -Force
             Copy-Item -Path ".\mesa3d\x64\libglapi.dll" -Destination $robloxPath -Force
+            Write-Output "Mesa3D successfully injected into $robloxPath"
+        } else {
+            Write-Output "Roblox installed, but version directory was created in user context or skipped."
         }
 
     - name: Start Tunnel
