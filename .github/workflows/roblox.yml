@@ -8,35 +8,30 @@ jobs:
     timeout-minutes: 360
 
     steps:
-    - name: Setup Ngrok
+    - name: Download & Setup Ngrok
       run: |
         curl -s https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz | tar -xz
         ./ngrok config add-authtoken 2OSMjN5cvDadPGM3YbUY4EmB9Ln_6HX7XaTGoq5rsJvVCMYJN
 
-    - name: Deploy Desktop + Waydroid Android
+    - name: Enable Kernel Modules
       run: |
-        # 1. Запускаем рабочий стол
+        sudo apt-get update
+        sudo apt-get install -y linux-modules-extra-$(uname -r)
+        sudo modprobe binder_linux devices="binder,hwbinder,vndbinder" || true
+
+    - name: Run Redroid + Web UI
+      run: |
         docker run -d \
-          --name android-env \
+          --name redroid-web \
           --privileged \
           --memory=6g \
           --cpus=2.00 \
-          -p 8080:80 \
-          dorowu/ubuntu-desktop-lxde-vnc:latest
-
-        sleep 10
-
-        # 2. Автоматически устанавливаем и запускаем Waydroid прямо внутри
-        docker exec -d android-env bash -c "
-          apt-get update && apt-get install -y curl ca-certificates &&
-          curl https://repo.waydro.id | bash &&
-          apt-get install -y waydroid &&
-          waydroid init -f &&
-          nohup waydroid session start &
-          sleep 10 &&
-          DISPLAY=:1 waydroid show-full-ui &
-        "
+          -p 6080:6080 \
+          redroid/redroid:11.0.0-latest \
+          androidboot.hardware=redroid \
+          redroid.gpu.mode=guest
 
     - name: Start Ngrok Tunnel
       run: |
-        ./ngrok http 8080
+        ./ngrok http 6080
+        
