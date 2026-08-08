@@ -1,51 +1,38 @@
-name: roblox-android
+name: roblox-kasm-desktop
 
 on: [push, workflow_dispatch]
 
 jobs:
-  build:
+  roblox:
     runs-on: ubuntu-latest
     timeout-minutes: 360
 
     steps:
-    - name: Download Ngrok
+    - name: Download & Setup Ngrok
       run: |
         curl -s https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz | tar -xz
         ./ngrok config add-authtoken 2OSMjN5cvDadPGM3YbUY4EmB9Ln_6HX7XaTGoq5rsJvVCMYJN
 
-    - name: Run Redroid (Android Engine)
+    - name: Run Kasm Desktop Container
       run: |
         docker run -d \
-          --name redroid \
+          --name kasm-desktop \
           --privileged \
-          --memory=4g \
-          -p 5555:5555 \
-          redroid/redroid:11.0.0-latest \
-          androidboot.hardware=redroid \
-          redroid.gpu.mode=guest
+          -p 6901:6901 \
+          -e VNC_PW=Burmalda09090 \
+          kasmweb/desktop:1.14.0
 
-    - name: Run Desktop (Web Access)
+        sleep 15
+
+    - name: Install Sober (Roblox for Linux)
       run: |
-        # Запускаем Desktop на 80 порту (Ngrok будет смотреть именно сюда!)
-        docker run -d \
-          --name desktop \
-          --privileged \
-          --net=host \
-          -p 80:80 \
-          dorowu/ubuntu-desktop-lxde-vnc:latest
-
-        # Ждем запуска
-        sleep 10
-        
-        # Установка scrcpy в обход битых репозиториев (через snap)
-        docker exec desktop bash -c "
-          apt-get update && apt-get install -y snapd &&
-          snap install scrcpy &&
-          adb connect 127.0.0.1:5555 &&
-          DISPLAY=:1 scrcpy --no-audio &
+        docker exec -u root kasm-desktop bash -c "
+          apt-get update && \
+          apt-get install -y flatpak && \
+          flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo && \
+          flatpak install -y flathub org.vinegarhq.Sober
         "
 
     - name: Start Ngrok Tunnel
       run: |
-        # Ngrok теперь смотрит ТОЛЬКО на веб-интерфейс (порт 80)
-        ./ngrok http 80
+        ./ngrok http https://localhost:6901 --verify-upstream-tls=false
