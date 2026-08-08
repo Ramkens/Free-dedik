@@ -30,33 +30,16 @@ jobs:
             rm -f /etc/apt/sources.list.d/google-chrome.list && \
             apt-get update && \
             apt-get install -y flatpak xdotool && \
-            flatpak install -y --from https://sober.roblox.com/sober.flatpakref && \
+            flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo && \
+            flatpak install -y flathub org.vinegarhq.Sober || true && \
             
-            DESKTOP_DIR=/home/kasm-default-profile/Desktop && \
-            mkdir -p \$DESKTOP_DIR && \
+            mkdir -p /home/kasm-default-profile/Desktop && \
             
-            # Anti-AFK Скрипт (Нажимает Пробел раз в 2 минуты через xdotool)
-            cat << 'EOF' > \$DESKTOP_DIR/anti_afk.sh
-          #!/bin/bash
-          echo 'Anti-AFK запущен! Нажимает Пробел каждые 120 сек.'
-          while true; do
-              sleep 120
-              xdotool key space
-          done
-          EOF
-
-            # Автокликер (Кликает левой кнопкой мыши раз в 0.5 сек)
-            cat << 'EOF' > \$DESKTOP_DIR/autoclicker.sh
-          #!/bin/bash
-          echo 'Автокликер запущен!'
-          while true; do
-              xdotool click 1
-              sleep 0.5
-          done
-          EOF
-
-            chmod +x \$DESKTOP_DIR/anti_afk.sh \$DESKTOP_DIR/autoclicker.sh && \
-            chown -R kasm-default-profile:kasm-default-profile \$DESKTOP_DIR
+            echo -e '#!/bin/bash\necho Anti-AFK started!\nwhile true; do sleep 120; xdotool key space; done' > /home/kasm-default-profile/Desktop/anti_afk.sh && \
+            echo -e '#!/bin/bash\necho Autoclicker started!\nwhile true; do xdotool click 1; sleep 0.5; done' > /home/kasm-default-profile/Desktop/autoclicker.sh && \
+            
+            chmod +x /home/kasm-default-profile/Desktop/*.sh && \
+            chown -R kasm-default-profile:kasm-default-profile /home/kasm-default-profile/Desktop
           "
 
       - name: Start Ngrok Tunnel
