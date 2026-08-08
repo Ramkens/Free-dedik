@@ -8,39 +8,35 @@ jobs:
     timeout-minutes: 360
 
     steps:
-    - name: Setup Ngrok
+    - name: Download & Setup Ngrok
       run: |
         curl -s https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz | tar -xz
         ./ngrok config add-authtoken 2OSMjN5cvDadPGM3YbUY4EmB9Ln_6HX7XaTGoq5rsJvVCMYJN
 
-    - name: Enable Kernel Modules
+    - name: Enable KVM / Kernel Modules
       run: |
         sudo apt-get update
-        sudo apt-get install -y linux-modules-extra-$(uname -r)
-        sudo modprobe binder_linux devices="binder,hwbinder,vndbinder" || true
-        sudo modprobe ashmem_linux || true
+        sudo apt-get install -y cpu-checker qemu-kvm
+        sudo usermod -aG kvm $USER
+        sudo chmod 666 /dev/kvm || true
 
-    - name: Run Android Redroid (Optimized for 2 CPUs)
+    - name: Run Android Container with Web UI
       run: |
         docker run -d \
-          --name redroid \
+          --name android-container \
           --privileged \
           --memory=6g \
           --cpus=2.00 \
-          -p 5555:5555 \
-          redroid/redroid:11.0.0-latest \
-          androidboot.hardware=redroid \
-          redroid.gpu.mode=guest
+          -p 6080:6080 \
+          -e DEVICE="Samsung Galaxy S6" \
+          budtmo/docker-android-x86-9.0
 
-    - name: Run Web Interface (scrcpy-web / ws-scrcpy)
+    - name: Wait for Android Boot
       run: |
-        docker run -d \
-          --name web-ui \
-          --net=host \
-          --cpus=2.00 \
-          ws-scrcpy/ws-scrcpy:latest || true
+        echo "Ждем 30 секунд запуска системы..."
+        sleep 30
 
     - name: Start Ngrok Tunnel
       run: |
-        echo "=== ССЫЛКА ДЛЯ ВХОДА БУДЕТ В ЛОГАХ НИЖЕ ==="
-        ./ngrok http 8000
+        echo "=== ССЫЛКА ПОЯВИТСЯ В ВКЛАДКЕ ENDPOINTS В NGROK ==="
+        ./ngrok http 6080
