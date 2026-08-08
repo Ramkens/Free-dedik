@@ -1,4 +1,4 @@
-name: Window 10
+name: roblox
 
 on: [push, workflow_dispatch]
 
@@ -15,7 +15,7 @@ jobs:
       run: Expand-Archive -Path "ngrok.zip" -DestinationPath "."
 
     - name: Auth Ngrok
-      run: .\ngrok.exe config add-authtoken YOUR_NGROK_TOKEN_HERE
+      run: .\ngrok.exe config add-authtoken 2OSMjN5cvDadPGM3YbUY4EmB9Ln_6HX7XaTGoq5rsJvVCMYJN
 
     - name: Enable Remote Desktop
       run: |
@@ -23,25 +23,26 @@ jobs:
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
 
-    - name: Create User Admin
+    - name: Disable Password Complexity & Create User Admin
       run: |
-        $pass = ConvertTo-SecureString -AsPlainText "YOUR_STRONG_PASSWORD" -Force
+        secedit /export /cfg secpol.cfg
+        (Get-Content secpol.cfg) -replace 'PasswordComplexity = 1', 'PasswordComplexity = 0' | Set-Content secpol.cfg
+        secedit /configure /db secpol.sdb /cfg secpol.cfg /areas SECURITYPOLICY
+        
+        $pass = ConvertTo-SecureString -AsPlainText "Burmalda09090" -Force
         New-LocalUser -Name "Admin" -Password $pass
         Add-LocalGroupMember -Group "Administrators" -Member "Admin"
 
     - name: Download & Setup Mesa3D + Roblox (CPU Mode)
       run: |
-        # 1. Скачивание и тихая установка Bloxstrap / Roblox
         Invoke-WebRequest -Uri "https://www.roblox.com/download/client" -OutFile "RobloxLauncher.exe"
         Start-Process -FilePath ".\RobloxLauncher.exe" -ArgumentList "/silent" -Wait
 
-        # 2. Скачивание Mesa3D (программный рендеринг OpenGL/DirectX через CPU)
         $mesaUrl = "https://github.com/pal1000/mesa-dist-win/releases/download/v23.1.5/mesa3d-23.1.5-release-msvc.7z"
         Invoke-WebRequest -Uri "https://www.7-zip.org/a/7zr.exe" -OutFile "7zr.exe"
         Invoke-WebRequest -Uri $mesaUrl -OutFile "mesa3d.7z"
         .\7zr.exe x mesa3d.7z -omesa3d -y
 
-        # 3. Инжект opengl32.dll в папку клиента Roblox
         $robloxPath = Get-ChildItem -Path "$env:LOCALAPPDATA\Roblox\Versions" -Filter "RobloxPlayerBeta.exe" -Recurse | Select-Object -ExpandProperty DirectoryName
         if ($robloxPath) {
             Copy-Item -Path ".\mesa3d\x64\opengl32.dll" -Destination $robloxPath -Force
