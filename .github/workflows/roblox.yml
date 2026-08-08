@@ -24,22 +24,31 @@ jobs:
 
           sleep 15
 
-      - name: Install Sober and Place Auto-Farm Scripts
+      - name: Install Tools and Setup Auto-Farm Scripts
         run: |
           docker exec -u root kasm-desktop bash -c "
             rm -f /etc/apt/sources.list.d/google-chrome.list && \
             apt-get update && \
-            apt-get install -y flatpak xdotool && \
-            flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo && \
-            flatpak install -y flathub org.vinegarhq.Sober || true && \
+            apt-get install -y xdotool wget && \
             
-            mkdir -p /home/kasm-default-profile/Desktop && \
+            # Находим домашнюю директорию юзера Kasm
+            KASM_DIR=\$(eval echo ~kasm_user)
+            DESKTOP_DIR=\"\$KASM_DIR/Desktop\"
+            mkdir -p \"\$DESKTOP_DIR\"
             
-            echo -e '#!/bin/bash\necho Anti-AFK started!\nwhile true; do sleep 120; xdotool key space; done' > /home/kasm-default-profile/Desktop/anti_afk.sh && \
-            echo -e '#!/bin/bash\necho Autoclicker started!\nwhile true; do xdotool click 1; sleep 0.5; done' > /home/kasm-default-profile/Desktop/autoclicker.sh && \
+            # Anti-AFK (Пробел раз в 2 минуты)
+            echo '#!/bin/bash' > \"\$DESKTOP_DIR/anti_afk.sh\"
+            echo 'echo Anti-AFK started!' >> \"\$DESKTOP_DIR/anti_afk.sh\"
+            echo 'while true; do sleep 120; xdotool key space; done' >> \"\$DESKTOP_DIR/anti_afk.sh\"
             
-            chmod +x /home/kasm-default-profile/Desktop/*.sh && \
-            chown -R kasm-default-profile:kasm-default-profile /home/kasm-default-profile/Desktop
+            # Автокликер (Клик 1 раз в 0.5 сек)
+            echo '#!/bin/bash' > \"\$DESKTOP_DIR/autoclicker.sh\"
+            echo 'echo Autoclicker started!' >> \"\$DESKTOP_DIR/autoclicker.sh\"
+            echo 'while true; do xdotool click 1; sleep 0.5; done' >> \"\$DESKTOP_DIR/autoclicker.sh\"
+            
+            # Выставляем права для пользователя kasm_user
+            chmod +x \"\$DESKTOP_DIR\"/*.sh
+            chown -R kasm_user:kasm_user \"\$DESKTOP_DIR\"
           "
 
       - name: Start Ngrok Tunnel
