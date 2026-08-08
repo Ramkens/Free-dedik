@@ -8,30 +8,44 @@ jobs:
     timeout-minutes: 360
 
     steps:
-    - name: Download & Setup Ngrok
+    - name: Download Ngrok
       run: |
         curl -s https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz | tar -xz
         ./ngrok config add-authtoken 2OSMjN5cvDadPGM3YbUY4EmB9Ln_6HX7XaTGoq5rsJvVCMYJN
 
-    - name: Enable Kernel Modules
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y linux-modules-extra-$(uname -r)
-        sudo modprobe binder_linux devices="binder,hwbinder,vndbinder" || true
-
-    - name: Run Redroid + Web UI
+    - name: Run Redroid (Android Engine)
       run: |
         docker run -d \
-          --name redroid-web \
+          --name redroid \
           --privileged \
-          --memory=6g \
-          --cpus=2.00 \
-          -p 6080:6080 \
+          --memory=4g \
+          -p 5555:5555 \
           redroid/redroid:11.0.0-latest \
           androidboot.hardware=redroid \
           redroid.gpu.mode=guest
 
+    - name: Run Desktop (Web Access)
+      run: |
+        # Запускаем Desktop на 80 порту (Ngrok будет смотреть именно сюда!)
+        docker run -d \
+          --name desktop \
+          --privileged \
+          --net=host \
+          -p 80:80 \
+          dorowu/ubuntu-desktop-lxde-vnc:latest
+
+        # Ждем запуска
+        sleep 10
+        
+        # Установка scrcpy в обход битых репозиториев (через snap)
+        docker exec desktop bash -c "
+          apt-get update && apt-get install -y snapd &&
+          snap install scrcpy &&
+          adb connect 127.0.0.1:5555 &&
+          DISPLAY=:1 scrcpy --no-audio &
+        "
+
     - name: Start Ngrok Tunnel
       run: |
-        ./ngrok http 6080
-        
+        # Ngrok теперь смотрит ТОЛЬКО на веб-интерфейс (порт 80)
+        ./ngrok http 80
