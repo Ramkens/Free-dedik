@@ -13,33 +13,20 @@ jobs:
         curl -s https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz | tar -xz
         ./ngrok config add-authtoken 2OSMjN5cvDadPGM3YbUY4EmB9Ln_6HX7XaTGoq5rsJvVCMYJN
 
-    - name: Install Node.js & ADB
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y android-tools-adb nodejs npm
-        sudo npm install -g ws-scrcpy || true
-
-    - name: Run Redroid (Android 11 on CPU)
+    - name: Run Web Desktop (Ubuntu VNC)
       run: |
         docker run -d \
-          --name redroid \
+          --name desktop \
           --privileged \
           --memory=6g \
           --cpus=2.00 \
-          -p 5555:5555 \
-          redroid/redroid:11.0.0-latest \
-          androidboot.hardware=redroid \
-          redroid.gpu.mode=guest
+          -p 8080:80 \
+          dorowu/ubuntu-desktop-lxde-vnc:latest
 
-    - name: Connect ADB and Start Web UI
-      run: |
-        sleep 10
-        adb connect localhost:5555
-        # Запускаем легкий веб-сервер управления
-        nohup npx ws-scrcpy > scrcpy.log 2>&1 &
-        sleep 5
+    - name: Wait for Desktop
+      run: sleep 10
 
     - name: Start Ngrok Tunnel
       run: |
-        echo "=== ССЫЛКА ПОЯВИТСЯ В NGROK ENDPOINTS (ПОРТ 8000) ==="
-        ./ngrok http 8000
+        ./ngrok http 8080
+        
