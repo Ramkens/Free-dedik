@@ -15,7 +15,9 @@ jobs:
         run: Expand-Archive -Path "ngrok.zip" -DestinationPath "."
         
       - name: Auth Ngrok
-        run: .\ngrok.exe config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+        env:
+          NGROK_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
+        run: .\ngrok.exe config add-authtoken $env:NGROK_TOKEN
         
       - name: Enable Remote Desktop
         run: |
@@ -24,8 +26,10 @@ jobs:
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
           
       - name: Create User Admin
+        env:
+          USER_PASS: ${{ secrets.RDP_PASSWORD }}
         run: |
-          $pass = ConvertTo-SecureString -AsPlainText "${{ secrets.RDP_PASSWORD }}" -Force
+          $pass = ConvertTo-SecureString -AsPlainText $env:USER_PASS -Force
           New-LocalUser -Name "Admin" -Password $pass
           Add-LocalGroupMember -Group "Administrators" -Member "Admin"
           
